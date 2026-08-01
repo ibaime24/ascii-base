@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ian Baime</title>
+<!--
+  IAN BAIME — LIQUID LIGHT
+  A personal-site centerpiece in the Liquid Light system: a full-screen field of
+  flowing waves rendered entirely in ASCII, with the name engraved into the surface
+  like a seal pressed under moving water. A domain-warped sum-of-sines height field
+  is lit (height tone + diffuse + specular glints + fresnel); the letterforms press
+  into the field — caught by the same light, rimmed in glints, swimming gently with
+  the waves, refracted by your ripples, radiating slow rings — and everything
+  collapses to ONE density ramp (@#%&*?!<>=+/:-· ). The open water keeps to the
+  light half of the ramp; the name alone is allowed the dark ink.
+  Move to stir · click to splash and ring · D inverts (or open with #dark;
+  #instant skips the intro). Edit NAME / TAGLINE at the top of the script.
+  Dark ink on cream. Fully responsive.
+-->
+<style>
+  :root{ --light:245,245,240; --dark:24,24,24; --bg:rgb(var(--light)); --fg:rgb(var(--dark)); }
+  html.dark{ --bg:rgb(var(--dark)); --fg:rgb(var(--light)); }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; background:var(--bg); overflow:hidden; }
+  body{ color:var(--fg); cursor:crosshair;
+    font-family: ui-monospace,"SF Mono","Menlo","Cascadia Mono","DejaVu Sans Mono",monospace;
+    transition: background .7s ease, color .7s ease; -webkit-font-smoothing:antialiased; }
+  #pool{ position:fixed; inset:0; white-space:pre; font-weight:500; overflow:hidden;
+    user-select:none; -webkit-user-select:none; animation: rise 1.8s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rise{ from{ opacity:0; filter:blur(5px); } to{ opacity:1; filter:none; } }
+  #tag{ position:fixed; left:50%; top:62%; transform:translateX(-50%); font-size:12px;
+    letter-spacing:.42em; padding-left:.42em; text-transform:uppercase; white-space:nowrap;
+    opacity:0; color:var(--fg); pointer-events:none; user-select:none;
+    animation: tagin 1.6s ease 2.9s forwards; }
+  @keyframes tagin{ to{ opacity:.5; } }
+  #hud{ position:fixed; left:0; bottom:0; padding:11px 13px; font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; opacity:.34; pointer-events:none; user-select:none; mix-blend-mode:difference; color:#999; }
+  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  @media (max-width: 600px){ #tag{ font-size:10px; letter-spacing:.26em; padding-left:.26em; } }
+  @media (prefers-reduced-motion: reduce){ #pool{ animation:none; } #tag{ animation-duration:.01s; animation-delay:0s; } }
+</style>
+</head>
+<body>
+  <h1 class="sr">Ian Baime</h1>
+  <pre id="pool" aria-hidden="true"></pre>
+  <div id="tag"></div>
+  <div id="hud">move to stir · click to ring · d to invert</div>
+<script>
+(() => {
+  "use strict";
+  // ---- the centerpiece text — edit these two lines ---------------------------
+  const NAME    = "IAN BAIME";
+  const TAGLINE = "ai · vision · cognition";          // "" hides it
+
+  const RAMP = "@#%&*?!<>=+/:-· ", L = RAMP.length;   // one ramp — open water keeps to the light half, the name gets the ink
+  const pool = document.getElementById("pool");
+  const tag  = document.getElementById("tag");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (location.hash.indexOf("dark") >= 0) document.documentElement.classList.add("dark");
+  if (TAGLINE) tag.textContent = TAGLINE; else tag.style.display = "none";
+  const instant = location.hash.indexOf("instant") >= 0;            // skip the intro (embeds, previews)
+  if (instant){ pool.style.animation = "none"; tag.style.animation = "none"; tag.style.opacity = ".5"; }
+
+  // ---- responsive grid ------------------------------------------------------
+  let GW=0, GH=0, cw=6, ch=12, AR=2, sx=1, originX=0, originY=0, kwx=0, kwy=0;
+  let hgt, cur, prv, mfield, mask0, dist, datt, datt2, Xc, Yr, wXc, wYc, wXr, wYr;
+  const mcv = document.createElement("canvas");
+  const mcx = mcv.getContext("2d", { willReadFrequently:true });
+  function fit(){
+    cw = Math.max(5, Math.min(9, Math.round(innerWidth / 238)));   // small glyphs, finer detail
+    ch = Math.round(cw * 1.95);  AR = ch / cw;
+    GW = Math.max(40, Math.floor(innerWidth / cw));
+    GH = Math.max(24, Math.floor(innerHeight / ch));
+    pool.style.fontSize = (cw / 0.6).toFixed(2) + "px";
+    pool.style.lineHeight = ch + "px";
+    sx = 230 / GW;                                                  // keep the wave scale resolution-independent
+    kwx = 0.11 / sx;  kwy = 0.11 / (sx * AR);                       // warp → cell units, for the swimming letters
+    const N = GW*GH;
+    hgt = new Float32Array(N); cur = new Float32Array(N); prv = new Float32Array(N);
+    mfield = new Float32Array(N); mask0 = new Float32Array(N);
+    dist = new Float32Array(N); datt = new Float32Array(N); datt2 = new Float32Array(N);
+    Xc = new Float32Array(GW); Yr = new Float32Array(GH);
+    wXc = new Float32Array(GW); wYc = new Float32Array(GW); wXr = new Float32Array(GH); wYr = new Float32Array(GH);
+    for (let i=0;i<GW;i++) Xc[i] = i*sx;
+    for (let j=0;j<GH;j++) Yr[j] = j*AR*sx;
+    const r = pool.getBoundingClientRect(); originX = r.left; originY = r.top;
+    engrave();
+  }
+
+  // ---- the name, rastered to the grid + a distance field from its letters ----
+  const FONT = 'ui-monospace,"SF Mono","Menlo","Cascadia Mono","DejaVu Sans Mono",monospace';
+  function engrave(){
+    const Hs = Math.max(2, Math.round(GH * AR));      // raster in square (screen-true) units
+    mcv.width = GW; mcv.height = Hs;
+    mcx.clearRect(0,0,GW,Hs);
+    mcx.fillStyle = "#fff"; mcx.textAlign = "center"; mcx.textBaseline = "alphabetic";
+    const setF = px => { mcx.font = "700 " + px.toFixed(2) + "px " + FONT;
+      try{ mcx.letterSpacing = (0.05*px).toFixed(2) + "px"; }catch(e){} };   // tracking in px — em units drift across font changes
+    setF(100);
+    const wEm = s => mcx.measureText(s).width / 100;
+    let lines = [NAME], em = (0.84*GW) / Math.max(0.001, wEm(NAME));
+    if ((em < 13 || innerHeight > innerWidth) && /\s/.test(NAME.trim())){  // narrow/portrait: break the name in two
+      const ws = NAME.trim().split(/\s+/), cut = Math.ceil(ws.length/2);
+      lines = [ws.slice(0,cut).join(" "), ws.slice(cut).join(" ")];
+      em = (0.84*GW) / Math.max(wEm(lines[0]), wEm(lines[1]), 0.001);
+    }
+    em = Math.min(em, (lines.length===1 ? 0.42 : 0.26) * Hs);
+    setF(em);
+    let wide = 0; for (const s of lines){ const w = mcx.measureText(s).width; if (w>wide) wide = w; }
+    if (wide > 0.88*GW){ em *= (0.88*GW)/wide; setF(em); }                 // self-correct: never overflow the field
+    const cyc = Hs * 0.47;                            // optical centre
+    let bottomV;
+    if (lines.length === 1){ mcx.fillText(lines[0], GW/2, cyc + 0.36*em); bottomV = cyc + 0.40*em; }
+    else { mcx.fillText(lines[0], GW/2, cyc - 0.35*em); mcx.fillText(lines[1], GW/2, cyc + 1.07*em); bottomV = cyc + 1.11*em; }
+    const a = mcx.getImageData(0,0,GW,Hs).data;       // soft coverage → smooth ASCII letter edges
+    for (let j=0;j<GH;j++){
+      let v = (j+0.5)*AR - 0.5; if (v<0) v=0; else if (v>Hs-1.001) v=Hs-1.001;
+      const v0=v|0, f=v-v0, r0=v0*GW, r1=(v0+1)*GW, row=j*GW;
+      for (let i=0;i<GW;i++){
+        const m = (a[(r0+i)*4+3]*(1-f) + a[(r1+i)*4+3]*f) / 255;
+        mask0[row+i] = m*m*(3-2*m);
+      }
+    }
+    // chamfer distance from the letterforms (screen-true: vertical steps cost AR)
+    const INF=1e9, DV=AR, DD=Math.sqrt(1+AR*AR), N=GW*GH;
+    for (let k=0;k<N;k++) dist[k] = mask0[k] > 0.5 ? 0 : INF;
+    for (let j=0;j<GH;j++){ const row=j*GW;
+      for (let i=0;i<GW;i++){ const k=row+i; let d=dist[k];
+        if (i>0 && dist[k-1]+1<d) d=dist[k-1]+1;
+        if (j>0){ if (dist[k-GW]+DV<d) d=dist[k-GW]+DV;
+          if (i>0 && dist[k-GW-1]+DD<d) d=dist[k-GW-1]+DD;
+          if (i<GW-1 && dist[k-GW+1]+DD<d) d=dist[k-GW+1]+DD; }
+        dist[k]=d; } }
+    for (let j=GH-1;j>=0;j--){ const row=j*GW;
+      for (let i=GW-1;i>=0;i--){ const k=row+i; let d=dist[k];
+        if (i<GW-1 && dist[k+1]+1<d) d=dist[k+1]+1;
+        if (j<GH-1){ if (dist[k+GW]+DV<d) d=dist[k+GW]+DV;
+          if (i<GW-1 && dist[k+GW+1]+DD<d) d=dist[k+GW+1]+DD;
+          if (i>0 && dist[k+GW-1]+DD<d) d=dist[k+GW-1]+DD; }
+        dist[k]=d; } }
+    for (let k=0;k<N;k++){ datt[k]=Math.exp(-dist[k]*0.045); datt2[k]=Math.exp(-dist[k]*0.020); }
+    const gap = Math.max(16, Math.min(48, 0.30*em*cw));
+    tag.style.top = (bottomV*cw + gap).toFixed(0) + "px";
+  }
+
+  function bilerp(a,u,v){                             // sample the name mask between cells
+    if (u<0) u=0; else if (u>GW-1.001) u=GW-1.001;
+    if (v<0) v=0; else if (v>GH-1.001) v=GH-1.001;
+    const u0=u|0, v0=v|0, fu=u-u0, fv=v-v0, k=v0*GW+u0;
+    const t0=a[k]+(a[k+1]-a[k])*fu, t1=a[k+GW]+(a[k+GW+1]-a[k+GW])*fu;
+    return t0+(t1-t0)*fv;
+  }
+
+  // ---- gentle cursor stir ---------------------------------------------------
+  function poke(ci, cj, s, rad){
+    for (let dj=-rad; dj<=rad; dj++) for (let di=-rad; di<=rad; di++){
+      const ii=ci+di, jj=cj+dj; if(ii<1||ii>=GW-1||jj<1||jj>=GH-1)continue;
+      const d=Math.hypot(di,dj); if(d>rad)continue; cur[jj*GW+ii] -= s*(1-d/rad);
+    }
+  }
+  let mpx=-1, mpy=-1, ringAt=-1e9;
+  addEventListener("pointermove", e=>{
+    const i=Math.floor((e.clientX-originX)/cw), j=Math.floor((e.clientY-originY)/ch);
+    if(i>0&&i<GW-1&&j>0&&j<GH-1){
+      poke(i,j,1.2,2);
+      if(mpx>=0){ const st=Math.max(Math.abs(i-mpx),Math.abs(j-mpy)); for(let s=1;s<st;s++) poke(Math.round(mpx+(i-mpx)*s/st),Math.round(mpy+(j-mpy)*s/st),0.8,2); }
+      mpx=i; mpy=j;
+    }
+  });
+  addEventListener("pointerdown", e=>{
+    const i=Math.floor((e.clientX-originX)/cw), j=Math.floor((e.clientY-originY)/ch);
+    if(i>0&&i<GW-1&&j>0&&j<GH-1) poke(i,j,14,6);
+    ringAt = performance.now()*0.001;                 // splash → the name rings outward
+  });
+  addEventListener("keydown", e=>{ if(e.key.toLowerCase()==="d") document.documentElement.classList.toggle("dark"); });
+
+  // ---- light + constants (proven offline) -----------------------------------
+  const NS=3.6, RIP=0.55;
+  const ENG=0.65, INK=0.05;                           // engrave depth, ink tone of the name (low = dense glyphs)
+  const CALM=0.62, HALO=0.32;                         // the liquid stills and brightens around the letterforms
+  const RINGA=0.13, RINGF=0.34, RINGS=1.7;            // slow rings breathing out of the letterforms
+  const BURSTA=0.60, BURSTF=0.34, BURSTS=13, BURSTDK=1.1;  // click: one loud expanding ring
+  let lx=-0.40, ly=-0.52, lz=0.76; { const ll=1/Math.hypot(lx,ly,lz); lx*=ll; ly*=ll; lz*=ll; }
+  let hx=lx, hy=ly, hz=lz+1; { const hl=1/Math.hypot(hx,hy,hz); hx*=hl; hy*=hl; hz*=hl; }
+
+  function loop(now){
+    requestAnimationFrame(loop);
+    const sec = now*0.001;
+    const t = (reduced ? now*0.4 : now) * 0.00098;    // a touch livelier
+
+    // the name surfaces out of the liquid after the rise
+    let na = (reduced || instant) ? 1 : (sec-0.7)/2.6; if(na<0)na=0; else if(na>1)na=1; na=na*na*(3-2*na);
+
+    // ripple sim (gentle interactive stir)
+    for (let j=1;j<GH-1;j++){ const r=j*GW;
+      for (let i=1;i<GW-1;i++){ const k=r+i; let v=(cur[k-1]+cur[k+1]+cur[k-GW]+cur[k+GW])*0.5 - prv[k]; v*=0.945; prv[k]=v; } }
+    { const tmp=cur; cur=prv; prv=tmp; }
+
+    // separable domain warp (per row / per col) → organic flow, cheap.
+    // primary drift + a 2nd harmonic, all gently breathing → bands curl into slow eddies.
+    const br = 1 + 0.20*Math.sin(t*0.061);
+    for (let i=0;i<GW;i++){ const x=Xc[i];
+      wXc[i]=br*(5.4*Math.cos(x*0.0080 - t*0.10) + 1.8*Math.cos(x*0.0210 + t*0.072));
+      wYc[i]=br*(7.2*Math.cos(x*0.0100 - t*0.13) + 1.6*Math.sin(x*0.0170 - t*0.052)); }
+    for (let j=0;j<GH;j++){ const y=Yr[j];
+      wXr[j]=br*(7.2*Math.sin(y*0.0120 + t*0.16) + 1.6*Math.cos(y*0.0240 - t*0.058));
+      wYr[j]=br*(5.4*Math.sin(y*0.0090 + t*0.11) + 1.8*Math.sin(y*0.0190 + t*0.082)); }
+
+    // name terms, hoisted: breathing engrave, ambient rings, click burst
+    const Ae = ENG*na*(1 + 0.15*Math.sin(t*0.83));
+    const Ar = RINGA*na;
+    const tb = sec - ringAt;
+    let Ab = BURSTA*na*Math.exp(-tb*BURSTDK); if (Ab<0.01) Ab=0;
+
+    // height field: domain-warped sum of travelling sines (+ the name + the stir)
+    const t05=t*0.50, t42=t*0.42, t70=t*0.70, t95=t*0.95, t128=t*1.28;
+    for (let j=0;j<GH;j++){ const row=j*GW, y=Yr[j], wxr=wXr[j], wyr=wYr[j], upO=(j>0?-GW:0), dnO=(j<GH-1?GW:0);
+      for (let i=0;i<GW;i++){ const k=row+i, le=(i>0?1:0), re=(i<GW-1?1:0);
+        const wx = Xc[i] + wXc[i] + wxr, wy = y + wYc[i] + wyr;
+        let h = 0.820*Math.sin(wx*0.020 + wy*0.010 - t05)     // broad travelling swell
+              + 0.372*Math.sin(-wx*0.013 + wy*0.026 + t42)    // cross chop
+              + 0.236*Math.sin(wx*0.040 - wy*0.030 - t70)     // ripple
+              + 0.124*Math.sin(wx*0.070 + wy*0.055 + t95)     // fine ripple
+              + 0.058*Math.sin(wx*0.118 - wy*0.094 - t128);   // shimmer — scintillates the glints
+        // the letters swim with the warp and refract through your ripples
+        const m = bilerp(mask0,
+          i + (wXc[i]+wxr)*kwx + (cur[k+re]-cur[k-le])*1.6,
+          j + (wYc[i]+wyr)*kwy + (cur[k+dnO]-cur[k+upO])*0.8);
+        h *= 1 - CALM*na*datt[k];                            // the liquid stills around the name
+        h += Ar*Math.sin(dist[k]*RINGF - t*RINGS)*datt[k];   // …its rings are the only waves there
+        if (Ab) h += Ab*Math.sin(dist[k]*BURSTF - tb*BURSTS)*datt2[k];
+        h -= Ae*m;
+        mfield[k] = m;
+        hgt[k] = h + cur[k]*RIP;
+      }
+    }
+
+    // shade: height tone + diffuse + specular glint + fresnel → glyph.
+    // open water is floored at the ramp's light half; only the name may take the ink.
+    const lines = new Array(GH);
+    for (let j=0;j<GH;j++){ const row=j*GW, up=(j>0?-GW:0), dn=(j<GH-1?GW:0);
+      let line="";
+      for (let i=0;i<GW;i++){ const k=row+i, le=(i>0?1:0), re=(i<GW-1?1:0);
+        let nx=(hgt[k-le]-hgt[k+re])*(0.5*NS), ny=(hgt[k+up]-hgt[k+dn])*(0.5*NS);
+        const inv=1/Math.sqrt(nx*nx+ny*ny+1); nx*=inv; ny*=inv; const nz=inv;
+        const diff = nx*lx+ny*ly+nz*lz;
+        let sp = nx*hx+ny*hy+nz*hz; if(sp<0)sp=0; sp*=sp; sp*=sp; sp*=sp; sp*=sp; sp*=sp;   // sp^32, sharp glint
+        let lum = 0.90 + 0.28*(hgt[k]/1.5) + 0.08*(diff-0.5) + 0.74*sp;
+        if (lum<0.50) lum=0.50;                        // open water keeps to the light half of the ramp
+        lum += HALO*na*datt[k];                        // …and brightens to cream around the name
+        if (lum>1) lum=1;
+        const mm = mfield[k]*na;
+        if (mm>0.003){                                 // the name alone takes the ink — solid, with faint inner life
+          const ms = mm*mm*(3-2*mm);                   // crisp the letter edge, keep the antialiasing
+          let ink = INK + 0.07*(hgt[k]/1.5) + 0.18*sp;
+          if (ink<0) ink=0; else if (ink>0.40) ink=0.40;
+          lum += (ink-lum)*ms;
+        }
+        let g=(lum*(L-1)+0.5)|0; if(g<0)g=0; else if(g>L-1)g=L-1;
+        line += RAMP[g];
+      }
+      lines[j]=line;
+    }
+    pool.textContent = lines.join("\n");
+  }
+
+  fit(); addEventListener("resize", fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
