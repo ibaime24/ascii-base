@@ -42,7 +42,6 @@
 </style>
 </head>
 <body>
-  <h1 class="sr">Ian Baime</h1>
   <pre id="pool" aria-hidden="true"></pre>
   <div id="tag"></div>
   <div id="hud">move to stir · click to ring · d to invert</div>
@@ -50,8 +49,8 @@
 (() => {
   "use strict";
   // ---- the centerpiece text — edit these two lines ---------------------------
-  const NAME    = "IAN BAIME";
-  const TAGLINE = "ai · vision · cognition";          // "" hides it
+  const NAME    = "";
+  const TAGLINE = "";                                 // "" hides it
 
   const RAMP = "@#%&*?!<>=+/:-· ", L = RAMP.length;   // one ramp — open water keeps to the light half, the name gets the ink
   const pool = document.getElementById("pool");
@@ -91,6 +90,11 @@
   // ---- the name, rastered to the grid + a distance field from its letters ----
   const FONT = 'ui-monospace,"SF Mono","Menlo","Cascadia Mono","DejaVu Sans Mono",monospace';
   function engrave(){
+    if (!NAME.trim()){                                 // no name → pure open water, no engrave/halo/rings
+      mask0.fill(0); mfield.fill(0);
+      dist.fill(1e9); datt.fill(0); datt2.fill(0);
+      return;
+    }
     const Hs = Math.max(2, Math.round(GH * AR));      // raster in square (screen-true) units
     mcv.width = GW; mcv.height = Hs;
     mcx.clearRect(0,0,GW,Hs);
