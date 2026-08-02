@@ -5,19 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Ian Baime</title>
 <!--
-  LIQUID LIGHT — open-water centerpiece for a design-engineer's landing page.
-  A full-screen ASCII wave field: a domain-warped sum-of-sines surface, lit
-  (height tone + diffuse + specular glints) and collapsed to ONE density ramp
-  (@#%&*?!<>=+/:-· ). A second, slower energy field — three domain-warped
-  interference sines — decides where the waves live: it breaks the surface
-  into many small orbs of energy, dense at the core and fading at the rim,
-  which drift, curl and morph as the sines slide past each other, so pockets
-  continuously bloom, merge and dissolve. Between orbs the water goes glassy
-  and the page falls to pure open space, so the composition keeps
-  renegotiating its negative space.
-  Move to stir (your ripples light up even the calm water) · click to splash ·
-  D inverts (or open with #dark; #instant skips the intro).
-  NAME / TAGLINE at the top of the script re-enable the engraved-name mode.
+  IAN BAIME — LIQUID LIGHT
+  A personal-site centerpiece in the Liquid Light system: a full-screen field of
+  flowing waves rendered entirely in ASCII, with the name engraved into the surface
+  like a seal pressed under moving water. A domain-warped sum-of-sines height field
+  is lit (height tone + diffuse + specular glints + fresnel); the letterforms press
+  into the field — caught by the same light, rimmed in glints, swimming gently with
+  the waves, refracted by your ripples, radiating slow rings — and everything
+  collapses to ONE density ramp (@#%&*?!<>=+/:-· ). The open water keeps to the
+  light half of the ramp; the name alone is allowed the dark ink.
+  Move to stir · click to splash and ring · D inverts (or open with #dark;
+  #instant skips the intro). Edit NAME / TAGLINE at the top of the script.
   Dark ink on cream. Fully responsive.
 -->
 <style>
@@ -65,11 +63,11 @@
 
   // ---- responsive grid ------------------------------------------------------
   let GW=0, GH=0, cw=6, ch=12, AR=2, sx=1, originX=0, originY=0, kwx=0, kwy=0;
-  let hgt, cur, prv, efield, mfield, mask0, dist, datt, datt2, Xc, Yr, wXc, wYc, wXr, wYr;
+  let hgt, cur, prv, mfield, mask0, dist, datt, datt2, Xc, Yr, wXc, wYc, wXr, wYr;
   const mcv = document.createElement("canvas");
   const mcx = mcv.getContext("2d", { willReadFrequently:true });
   function fit(){
-    cw = Math.max(5, Math.min(9, Math.round(innerWidth / 290)));   // small glyphs, finer detail
+    cw = Math.max(5, Math.min(9, Math.round(innerWidth / 238)));   // small glyphs, finer detail
     ch = Math.round(cw * 1.95);  AR = ch / cw;
     GW = Math.max(40, Math.floor(innerWidth / cw));
     GH = Math.max(24, Math.floor(innerHeight / ch));
@@ -79,7 +77,7 @@
     kwx = 0.11 / sx;  kwy = 0.11 / (sx * AR);                       // warp → cell units, for the swimming letters
     const N = GW*GH;
     hgt = new Float32Array(N); cur = new Float32Array(N); prv = new Float32Array(N);
-    efield = new Float32Array(N); mfield = new Float32Array(N); mask0 = new Float32Array(N);
+    mfield = new Float32Array(N); mask0 = new Float32Array(N);
     dist = new Float32Array(N); datt = new Float32Array(N); datt2 = new Float32Array(N);
     Xc = new Float32Array(GW); Yr = new Float32Array(GH);
     wXc = new Float32Array(GW); wYc = new Float32Array(GW); wXr = new Float32Array(GH); wYr = new Float32Array(GH);
@@ -183,7 +181,6 @@
 
   // ---- light + constants (proven offline) -----------------------------------
   const NS=3.6, RIP=0.55;
-  const SETLO=-0.85, SETHI=0.50;                      // energy thresholds: below → glassy open space, above → full density
   const ENG=0.65, INK=0.05;                           // engrave depth, ink tone of the name (low = dense glyphs)
   const CALM=0.62, HALO=0.32;                         // the liquid stills and brightens around the letterforms
   const RINGA=0.13, RINGF=0.34, RINGS=1.7;            // slow rings breathing out of the letterforms
@@ -201,7 +198,7 @@
 
     // ripple sim (gentle interactive stir)
     for (let j=1;j<GH-1;j++){ const r=j*GW;
-      for (let i=1;i<GW-1;i++){ const k=r+i; let v=(cur[k-1]+cur[k+1]+cur[k-GW]+cur[k+GW])*0.2 - prv[k]; v*=0.945; prv[k]=v; } }
+      for (let i=1;i<GW-1;i++){ const k=r+i; let v=(cur[k-1]+cur[k+1]+cur[k-GW]+cur[k+GW])*0.5 - prv[k]; v*=0.945; prv[k]=v; } }
     { const tmp=cur; cur=prv; prv=tmp; }
 
     // separable domain warp (per row / per col) → organic flow, cheap.
@@ -220,26 +217,16 @@
     const tb = sec - ringAt;
     let Ab = BURSTA*na*Math.exp(-tb*BURSTDK); if (Ab<0.01) Ab=0;
 
-    // height field: domain-warped sum of travelling sines (+ the name + the stir).
-    // a slower energy field gates it into orbs — dense texture inside,
-    // glassy open space between.
-    const t05=t*0.2, t42=t*1.8, t70=t*0.70, t95=t*1.5, t128=t*2; //speed defined in the "t985" and "t128" constants. not exactly sure what t42 does but it's cool and changes the "internal" oscilation 
-    const te1=t*0.070, te2=t*0.048, te3=t*0.092;
-    const eScale = 1/(SETHI-SETLO);
+    // height field: domain-warped sum of travelling sines (+ the name + the stir)
+    const t05=t*0.50, t42=t*0.42, t70=t*0.70, t95=t*0.95, t128=t*1.28;
     for (let j=0;j<GH;j++){ const row=j*GW, y=Yr[j], wxr=wXr[j], wyr=wYr[j], upO=(j>0?-GW:0), dnO=(j<GH-1?GW:0);
       for (let i=0;i<GW;i++){ const k=row+i, le=(i>0?1:0), re=(i<GW-1?1:0);
         const wx = Xc[i] + wXc[i] + wxr, wy = y + wYc[i] + wyr;
-        // where the orbs live: many small, warped islands of energy
-        const er = Math.sin(wx*0.090 + wy*0.057 - te1)
-                 + 0.70*Math.sin(wx*0.042 - wy*0.099 + te2)
-                 + 0.45*Math.sin(wx*0.156 + wy*0.123 + te3);
-        let e = (er - SETLO)*eScale; if(e<0)e=0; else if(e>1)e=1; e=e*e*(3-2*e);
-        const fine = 0.35 + 0.75*e;                           // the sets carry the fine texture
         let h = 0.820*Math.sin(wx*0.020 + wy*0.010 - t05)     // broad travelling swell
               + 0.372*Math.sin(-wx*0.013 + wy*0.026 + t42)    // cross chop
               + 0.236*Math.sin(wx*0.040 - wy*0.030 - t70)     // ripple
-              + fine*(0.290*Math.sin(wx*0.070 + wy*0.055 + t95)      // fine ripple
-                    + 0.170*Math.sin(wx*0.118 - wy*0.094 - t128));   // shimmer — scintillates the glints
+              + 0.124*Math.sin(wx*0.070 + wy*0.055 + t95)     // fine ripple
+              + 0.058*Math.sin(wx*0.118 - wy*0.094 - t128);   // shimmer — scintillates the glints
         // the letters swim with the warp and refract through your ripples
         const m = bilerp(mask0,
           i + (wXc[i]+wxr)*kwx + (cur[k+re]-cur[k-le])*1.6,
@@ -249,15 +236,12 @@
         if (Ab) h += Ab*Math.sin(dist[k]*BURSTF - tb*BURSTS)*datt2[k];
         h -= Ae*m;
         mfield[k] = m;
-        const ec = e + Math.abs(cur[k])*1.5;                 // your ripples light up even the calm water
-        efield[k] = ec>1 ? 1 : ec;
         hgt[k] = h + cur[k]*RIP;
       }
     }
 
-    // shade: height tone + diffuse + specular glint → glyph.
-    // inside a set the ramp opens all the way up — dark troughs, shadowed faces,
-    // glints punching gaps; between sets lum rides to 1 → pure open space.
+    // shade: height tone + diffuse + specular glint + fresnel → glyph.
+    // open water is floored at the ramp's light half; only the name may take the ink.
     const lines = new Array(GH);
     for (let j=0;j<GH;j++){ const row=j*GW, up=(j>0?-GW:0), dn=(j<GH-1?GW:0);
       let line="";
@@ -266,12 +250,9 @@
         const inv=1/Math.sqrt(nx*nx+ny*ny+1); nx*=inv; ny*=inv; const nz=inv;
         const diff = nx*lx+ny*ly+nz*lz;
         let sp = nx*hx+ny*hy+nz*hz; if(sp<0)sp=0; sp*=sp; sp*=sp; sp*=sp; sp*=sp; sp*=sp;   // sp^32, sharp glint
-        const e = efield[k];
-        let dk = 0.66 - 0.40*(hgt[k]/1.5) - 0.30*(diff-0.55);   // ink weight: troughs + faces away from the light
-        if (dk<0) dk=0; else if (dk>0.97) dk=0.97;
-        let lum = 1 - dk*e + 0.80*sp*e;
-        if (lum<0.03) lum=0.03;
-        lum += HALO*na*datt[k];                        // brightens to cream around the name
+        let lum = 0.90 + 0.28*(hgt[k]/1.5) + 0.08*(diff-0.5) + 0.74*sp;
+        if (lum<0.50) lum=0.50;                        // open water keeps to the light half of the ramp
+        lum += HALO*na*datt[k];                        // …and brightens to cream around the name
         if (lum>1) lum=1;
         const mm = mfield[k]*na;
         if (mm>0.003){                                 // the name alone takes the ink — solid, with faint inner life
