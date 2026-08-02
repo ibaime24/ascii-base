@@ -223,7 +223,7 @@
     // height field: domain-warped sum of travelling sines (+ the name + the stir).
     // a slower energy field gates it into orbs — dense texture inside,
     // glassy open space between.
-    const t05=t*0.50, t42=t*0.42, t70=t*0.70, t95=t*0.95, t128=t*1.28;
+    const t05=t*0.2, t42=t*1.8, t70=t*0.70, t95=t*1.5, t128=t*2; //speed defined in the "t985" and "t128" constants. not exactly sure what t42 does but it's cool and changes the "internal" oscilation 
     const te1=t*0.070, te2=t*0.048, te3=t*0.092;
     const eScale = 1/(SETHI-SETLO);
     for (let j=0;j<GH;j++){ const row=j*GW, y=Yr[j], wxr=wXr[j], wyr=wYr[j], upO=(j>0?-GW:0), dnO=(j<GH-1?GW:0);
