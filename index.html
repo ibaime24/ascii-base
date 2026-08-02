@@ -8,14 +8,13 @@
   LIQUID LIGHT — open-water centerpiece for a design-engineer's landing page.
   A full-screen ASCII wave field: a domain-warped sum-of-sines surface, lit
   (height tone + diffuse + specular glints) and collapsed to ONE density ramp
-  (@#%&*?!<>=+/:-· ). A purely sine-based orb field decides where the waves
-  live: several sine modes, each a drifting lattice of blob-shaped lobes with
-  its own life cycle (the family surfaces, lives, sinks away) and a slow
-  travelling gate that makes individual blobs bloom and dissolve locally.
-  The living modes sum, so blobs from different lattices drift through each
-  other and merge; everything is evaluated on the warped coordinates, so every
-  edge wobbles with the water. Between orbs the water goes glassy and the page
-  falls to pure open space.
+  (@#%&*?!<>=+/:-· ). A second, slower energy field — three domain-warped
+  interference sines — decides where the waves live: it breaks the surface
+  into many small orbs of energy, dense at the core and fading at the rim,
+  which drift, curl and morph as the sines slide past each other, so pockets
+  continuously bloom, merge and dissolve. Between orbs the water goes glassy
+  and the page falls to pure open space, so the composition keeps
+  renegotiating its negative space.
   Move to stir (your ripples light up even the calm water) · click to splash ·
   D inverts (or open with #dark; #instant skips the intro).
   NAME / TAGLINE at the top of the script re-enable the engraved-name mode.
@@ -184,31 +183,7 @@
 
   // ---- light + constants (proven offline) -----------------------------------
   const NS=3.6, RIP=0.55;
-  const SETLO=0.10, SETHI=0.34;                       // orb thresholds: below → glassy open space, above → full density
-
-  // sine modes: each is a drifting lattice of blob-shaped lobes (the positive
-  // cells of a product of two ~perpendicular travelling sines). every mode has
-  // its own life cycle — its whole family surfaces, lives, sinks away — and a
-  // slow travelling gate on top, so individual blobs inside a living mode also
-  // bloom and dissolve locally. summed, the living modes make the orb field.
-  const MODES = [];
-  { const fr = v => v - Math.floor(v), TAU = 6.2831853;
-    for (let n=0;n<6;n++){
-      const th = TAU*fr(n*0.6180339887 + 0.24);
-      const k1 = 0.062 + 0.036*fr(n*0.7548777 + 0.31), k2 = 0.062 + 0.036*fr(n*0.5698403 + 0.77);
-      MODES.push({
-        ux: Math.cos(th)*k1, uy: Math.sin(th)*k1,               // lattice axes
-        vx: -Math.sin(th)*k2, vy: Math.cos(th)*k2,
-        d1: (0.10 + 0.14*fr(n*0.4655712 + 0.61))*(n%2?1:-1),    // travel speeds
-        d2: (0.08 + 0.12*fr(n*0.9082347 + 0.23))*(n%3?1:-1),
-        p1: TAU*fr(n*0.2902113 + 0.11), p2: TAU*fr(n*0.8312989 + 0.41),
-        gx: 0.045*Math.cos(th+1.1), gy: 0.045*Math.sin(th+1.1), // local bloom gate
-        gd: (0.12 + 0.16*fr(n*0.3350861 + 0.83))*(n%2?-1:1), gp: TAU*fr(n*0.6110108 + 0.47),
-        lf: 0.15 + 0.20*fr(n*0.5142118 + 0.37), lp: TAU*fr(n*0.7024536 + 0.19),  // life cycle
-        w: 1.1 + 0.5*fr(n*0.7719298 + 0.67)
-      });
-    }
-  }
+  const SETLO=-0.85, SETHI=0.50;                      // energy thresholds: below → glassy open space, above → full density
   const ENG=0.65, INK=0.05;                           // engrave depth, ink tone of the name (low = dense glyphs)
   const CALM=0.62, HALO=0.32;                         // the liquid stills and brightens around the letterforms
   const RINGA=0.13, RINGF=0.34, RINGS=1.7;            // slow rings breathing out of the letterforms
@@ -226,7 +201,7 @@
 
     // ripple sim (gentle interactive stir)
     for (let j=1;j<GH-1;j++){ const r=j*GW;
-      for (let i=1;i<GW-1;i++){ const k=r+i; let v=(cur[k-1]+cur[k+1]+cur[k-GW]+cur[k+GW])*0.5 - prv[k]; v*=0.945; prv[k]=v; } }
+      for (let i=1;i<GW-1;i++){ const k=r+i; let v=(cur[k-1]+cur[k+1]+cur[k-GW]+cur[k+GW])*0.2 - prv[k]; v*=0.945; prv[k]=v; } }
     { const tmp=cur; cur=prv; prv=tmp; }
 
     // separable domain warp (per row / per col) → organic flow, cheap.
@@ -245,31 +220,19 @@
     const tb = sec - ringAt;
     let Ab = BURSTA*na*Math.exp(-tb*BURSTDK); if (Ab<0.01) Ab=0;
 
-    // which modes are up right now: each blob family surfaces, lives, and
-    // sinks away on its own life cycle
-    const live = [];
-    for (const m of MODES){
-      const la = Math.sin(t*m.lf + m.lp);
-      let al = (la + 0.3)/0.65; if (al<0) al=0; else if (al>1) al=1; al=al*al*(3-2*al);
-      if (al < 0.02) continue;
-      live.push({m, al, f1: t*m.d1 + m.p1, f2: t*m.d2 + m.p2, fg: t*m.gd + m.gp});
-    }
-
     // height field: domain-warped sum of travelling sines (+ the name + the stir).
-    // the orb field gates it — dense texture inside an orb, glassy space between.
+    // a slower energy field gates it into orbs — dense texture inside,
+    // glassy open space between.
     const t05=t*0.50, t42=t*0.42, t70=t*0.70, t95=t*0.95, t128=t*1.28;
+    const te1=t*0.070, te2=t*0.048, te3=t*0.092;
     const eScale = 1/(SETHI-SETLO);
     for (let j=0;j<GH;j++){ const row=j*GW, y=Yr[j], wxr=wXr[j], wyr=wYr[j], upO=(j>0?-GW:0), dnO=(j<GH-1?GW:0);
       for (let i=0;i<GW;i++){ const k=row+i, le=(i>0?1:0), re=(i<GW-1?1:0);
         const wx = Xc[i] + wXc[i] + wxr, wy = y + wYc[i] + wyr;
-        // the orb field: summed blob lobes from every living mode, evaluated on
-        // the warped coordinates so every edge wobbles with the water. blobs
-        // from different lattices drift through each other and merge.
-        let er = 0;
-        for (const s of live){ const m = s.m;
-          const p = Math.sin(wx*m.ux + wy*m.uy + s.f1)*Math.sin(wx*m.vx + wy*m.vy + s.f2);
-          if (p > 0) er += s.al*m.w*p*p*(0.5 + 0.5*Math.sin(wx*m.gx + wy*m.gy + s.fg));
-        }
+        // where the orbs live: many small, warped islands of energy
+        const er = Math.sin(wx*0.090 + wy*0.057 - te1)
+                 + 0.70*Math.sin(wx*0.042 - wy*0.099 + te2)
+                 + 0.45*Math.sin(wx*0.156 + wy*0.123 + te3);
         let e = (er - SETLO)*eScale; if(e<0)e=0; else if(e>1)e=1; e=e*e*(3-2*e);
         const fine = 0.35 + 0.75*e;                           // the sets carry the fine texture
         let h = 0.820*Math.sin(wx*0.020 + wy*0.010 - t05)     // broad travelling swell
