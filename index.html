@@ -26,7 +26,7 @@
   body{ color:var(--fg); cursor:crosshair;
     font-family: ui-monospace,"SF Mono","Menlo","Cascadia Mono","DejaVu Sans Mono",monospace;
     transition: background .7s ease, color .7s ease; -webkit-font-smoothing:antialiased; }
-  #pool{ position:fixed; inset:0; white-space:pre; font-weight:500; overflow:hidden;
+  #pool{ position:fixed; inset:0; white-space:pre; font-weight:bolder; overflow:hidden;
     user-select:none; -webkit-user-select:none; animation: rise 1.8s cubic-bezier(.2,.7,.2,1) both; }
   @keyframes rise{ from{ opacity:0; filter:blur(5px); } to{ opacity:1; filter:none; } }
   #tag{ position:fixed; left:50%; top:62%; transform:translateX(-50%); font-size:12px;
@@ -52,6 +52,7 @@
   const NAME    = "";
   const TAGLINE = "";                                 // "" hides it
 
+
   const RAMP = "@#%&*?!<>=+/:-· ", L = RAMP.length;   // one ramp — open water keeps to the light half, the name gets the ink
   const pool = document.getElementById("pool");
   const tag  = document.getElementById("tag");
@@ -75,7 +76,7 @@
     pool.style.lineHeight = ch + "px";
     sx = 230 / GW;                                                  // keep the wave scale resolution-independent
     kwx = 0.11 / sx;  kwy = 0.11 / (sx * AR);                       // warp → cell units, for the swimming letters
-    const N = GW*GH;
+    const N = GW*GH*10;
     hgt = new Float32Array(N); cur = new Float32Array(N); prv = new Float32Array(N);
     mfield = new Float32Array(N); mask0 = new Float32Array(N);
     dist = new Float32Array(N); datt = new Float32Array(N); datt2 = new Float32Array(N);
@@ -113,7 +114,7 @@
     setF(em);
     let wide = 0; for (const s of lines){ const w = mcx.measureText(s).width; if (w>wide) wide = w; }
     if (wide > 0.88*GW){ em *= (0.88*GW)/wide; setF(em); }                 // self-correct: never overflow the field
-    const cyc = Hs * 0.47;                            // optical centre
+    const cyc = Hs;                            // optical centre
     let bottomV;
     if (lines.length === 1){ mcx.fillText(lines[0], GW/2, cyc + 0.36*em); bottomV = cyc + 0.40*em; }
     else { mcx.fillText(lines[0], GW/2, cyc - 0.35*em); mcx.fillText(lines[1], GW/2, cyc + 1.07*em); bottomV = cyc + 1.11*em; }
@@ -181,7 +182,7 @@
 
   // ---- light + constants (proven offline) -----------------------------------
   const NS=3.6, RIP=0.55;
-  const ENG=0.65, INK=0.05;                           // engrave depth, ink tone of the name (low = dense glyphs)
+  const ENG=0.65, INK=0.5;                           // engrave depth, ink tone of the name (low = dense glyphs)
   const CALM=0.62, HALO=0.32;                         // the liquid stills and brightens around the letterforms
   const RINGA=0.13, RINGF=0.34, RINGS=1.7;            // slow rings breathing out of the letterforms
   const BURSTA=0.60, BURSTF=0.34, BURSTS=13, BURSTDK=1.1;  // click: one loud expanding ring
@@ -191,7 +192,7 @@
   function loop(now){
     requestAnimationFrame(loop);
     const sec = now*0.001;
-    const t = (reduced ? now*0.4 : now) * 0.00098;    // a touch livelier
+    const t = (reduced ? now*0.4 : now) * 0.00115;    // a touch livelier //origional was slower
 
     // the name surfaces out of the liquid after the rise
     let na = (reduced || instant) ? 1 : (sec-0.7)/2.6; if(na<0)na=0; else if(na>1)na=1; na=na*na*(3-2*na);
